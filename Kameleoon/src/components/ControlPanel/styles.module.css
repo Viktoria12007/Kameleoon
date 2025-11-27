@@ -1,0 +1,11 @@
+.controlPanel__wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.controlPanel__col {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
