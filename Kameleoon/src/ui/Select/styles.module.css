@@ -1,0 +1,52 @@
+.selectWrapper {
+    position: relative;
+    width: 220px;
+    font-family: sans-serif;
+}
+
+.selectControl {
+    padding: 6.5px 8px;
+    border: 1px solid #C7C5D0;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.selectDropdown {
+    position: absolute;
+    width: 100%;
+    top: calc(100% + 4px);
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    z-index: 10;
+    padding: 0;
+    margin: 0;
+}
+
+.selectOption {
+    list-style: none;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.selectOption:hover {
+    background: #f0f0f0;
+}
+
+.selectOption.selected {
+    background: #e0eaff;
+    font-weight: bold;
+}
+
+.arrow {
+    font-size: 12px;
+}
