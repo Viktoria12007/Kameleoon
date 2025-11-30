@@ -9,7 +9,7 @@ interface ChartProps {
     height?: number,
 }
 
-const Chart = ({ data = [], width = 900, height = 400 }: ChartProps) => {
+const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
     const { appState, setAppState } = useContext(AppContext);
 
     const marginBottom = 30;
@@ -18,48 +18,76 @@ const Chart = ({ data = [], width = 900, height = 400 }: ChartProps) => {
     const marginTop = 20;
     const innerW = width - marginLeft - marginRight;
     const innerH = height - marginTop - marginBottom;
+    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const getWeekDay = (date: Date) => weekDays[date.getDay() === 0 ? 6 : date.getDay() - 1];
 
     const gx = useRef(null);
     const gy = useRef(null);
     const tooltipRef = useRef<HTMLDivElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
-    let parsed: Array<{ date: Date, value: number }>;
+    let parsed: [Array<{ date: Date, value: number }> | undefined] | undefined;
     let x;
     let y;
-    let shape;
+    const colors = ["#46464F", "#4142EF", "#FF8346", "#35BDAD", "#FFB958", "#DF57BC"];
+    const variationsColors = data?.variations.reduce((acc, item, index) => {
+        acc['id' in item ? item.id : 0] = colors[index];
+        return acc;
+    }, {});
 
-    if (data && data.data) {
-        parsed = data.data.map(d => ({
+    if (appState?.variation.value === 1) {
+        parsed = data?.variations.map(item => data?.data.map(d => ({
+            date: new Date(d.date),
+            value: conversionRate(d, item),
+        })).sort((a, b) => a.date - b.date));
+    } else {
+        parsed = [data?.data.map(d => ({
             date: new Date(d.date),
             value: conversionRate(d),
-        })).sort((a, b) => a.date - b.date);
-
-        x = d3.scaleUtc().domain([new Date("2025-01-01"), new Date("2025-12-31")]).range([marginLeft, width - marginRight]);
-        y = d3.scaleLinear().domain([0, 40]).range([height - marginBottom, marginTop]);
-
-        if (appState.lineStyle.value === 0) {
-            shape = d3.line().x((d) => x(new Date(d.date))).y((d) => y(d.value));
-        } else if (appState.lineStyle.value === 1) {
-            shape = d3.line().x((d) => x(new Date(d.date))).y((d) => y(d.value)).curve();
-        } else {
-            shape = d3.area().x((d) => x(new Date(d.date))).y0(y(0)).y1((d) => y(d.value));
-        }
+        })).sort((a, b) => a.date - b.date)];
     }
 
-    useEffect(() => void d3.select(gx.current).call(d3.axisBottom(x).tickFormat(d3.utcFormat("%b")))
-            .call(g => g.selectAll(".tick line").remove())
-            .call(g => g.selectAll(".tick text").attr("fill", "#918F9A"))
-            .call(g => g.selectAll(".domain").remove()),
-        [gx, x]);
+    if (appState?.timePeriod.value === 0) {
+        x = d3.scaleTime().domain(d3.extent(parsed?.flat(), d => d.date)).range([marginLeft, width - marginRight]);
+    } else {
+        const getWeekIndex = (date: Date) => (date.getDay() + 6) % 7;
+        x = d3.scaleLinear().domain([0, 6]).range([marginLeft, width - marginRight]);
+    }
+
+    y = d3.scaleLinear().domain(d3.extent(parsed?.flat(), d => d.value)).range([height - marginBottom, marginTop]);
+
+    let line = d3.line().defined(d => !isNaN(d.value)).x((d) => x(d.date)).y((d) => y(d.value));
+    let area;
+    if (appState?.lineStyle.value === 1) {
+        line = line.curve(d3.curveMonotoneX);
+    } else if (appState?.lineStyle.value === 2) {
+        line = line.curve(d3.curveMonotoneX);
+        area = d3.area().defined(d => !isNaN(d.value)).x((d) => x(d.date)).y0(y(d3.min(parsed?.flat(), (d) => d.value))).y1((d) => y(d.value)).curve(d3.curveMonotoneX);
+    }
+
+    useEffect(() => {
+        let axis;
+        if (appState?.timePeriod.value === 0) {
+            axis = d3.select(gx.current).call(d3.axisBottom(x).tickFormat(d3.utcFormat("%x")));
+        } else {
+            axis = d3.select(gx.current).call(d3.axisBottom(x).ticks(7).tickFormat(i => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][Number(i)]));
+        }
+        axis.call(g => g.selectAll(".tick line").remove())
+        .call(g => g.selectAll(".tick text").attr("fill", "#918F9A"))
+        .call(g => g.selectAll(".domain").remove())
+    }, [gx, x, appState?.timePeriod.value]);
     useEffect(() => void d3.select(gy.current).call(d3.axisLeft(y).ticks(4).tickFormat((domainValue) => `${domainValue}%`))
             .call(g => g.selectAll(".tick line").remove())
             .call(g => g.selectAll(".tick text").attr("fill", "#918F9A"))
             .call(g => g.selectAll(".domain").remove()),
         [gy, y]);
 
-    function conversionRate(item) {
-        return (item.conversions["0"] / item.visits["0"]) * 100;
+    function conversionRate(item, variationSelected = data?.variations[0]) {
+        if (appState?.variation.value === 1) {
+            const variationSelectedId = 'id' in variationSelected ? variationSelected.id : 0;
+            return (item.conversions[variationSelectedId] / item.visits[variationSelectedId]) * 100;
+        }
+        return (item.conversions[appState?.variation.value] / item.visits[appState?.variation.value]) * 100;
     }
 
     function handleMouseOver() {
@@ -79,8 +107,8 @@ const Chart = ({ data = [], width = 900, height = 400 }: ChartProps) => {
         const x0 = x.invert(mx);
         // find nearest point
         const bisect = d3.bisector(d => d.date).left;
-        const idx = Math.min(parsed.length - 1, Math.max(0, bisect(parsed, x0)));
-        const d0 = parsed[idx];
+        const idx = Math.min(parsed?.flat().length - 1, Math.max(0, bisect(parsed as Array<{ date: Date, value: number }>, x0)));
+        const d0 = (parsed as Array<{ date: Date, value: number }>)[idx];
         // position focus
         // focus.attr('transform', `translate(${x(d0.date)},${y(d0.value)})`)
         if (tooltipRef.current) {
@@ -98,12 +126,12 @@ const Chart = ({ data = [], width = 900, height = 400 }: ChartProps) => {
 
     return (
         <div ref={containerRef} style={{ position: 'relative' }}>
-            <svg width={width} height={height} style={{ maxWidth: '100%', height: 'auto', font: 'medium 11px Roboto sans-serif' }}>
-                { parsed.length &&
+            <svg width={width} height={height}>
+                { parsed?.flat().length &&
                     <>
                         <rect
-                            width={innerW}
-                            height={innerH}
+                            width={width}
+                            height={height}
                             fill="transparent"
                             onMouseOver={handleMouseOver}
                             onMouseOut={handleMouseOut}
@@ -119,11 +147,33 @@ const Chart = ({ data = [], width = 900, height = 400 }: ChartProps) => {
                                 { y.ticks().map((d, i) => (<line key={i} x1={marginLeft} x2={width - marginRight} y1={0.5 + y(d)} y2={0.5 + y(d)} stroke={'#E1DFE7'} />)) }
                             </g>
                         </g>
-                        <g></g>
-                        <path fill="none" stroke="currentColor" strokeWidth="2" d={shape(parsed)} />
+                        { parsed.map((p, index) =>
+                            <g key={index}>
+                                <path
+                                    fill="none"
+                                    stroke={appState?.variation.value !== 1 ? variationsColors[appState?.variation.value] : Object.values(variationsColors)[index]}
+                                    strokeWidth="2"
+                                    d={line(p?.filter(d => !isNaN(d.value)))}
+                                />
+                                <path
+                                    fill="none"
+                                    stroke={appState?.variation.value !== 1 ? variationsColors[appState?.variation.value] : Object.values(variationsColors)[index]}
+                                    strokeWidth="2"
+                                    d={line(p)}
+                                />
+                                { appState?.lineStyle.value === 2 &&
+                                    <path
+                                        fill={appState.variation.value !== 1 ? variationsColors[appState.variation.value] : Object.values(variationsColors)[index]}
+                                        fillOpacity="0.2"
+                                        stroke="none"
+                                        d={area(p?.filter(d => !isNaN(d.value)))}
+                                    />
+                                }
+                            </g>
+                        )}
                     </>
                 }
-                { !parsed.length && <text textAnchor="middle" fill="#918F9A">No data</text> }
+                { !parsed?.length && <text textAnchor="middle" fill="#918F9A">No data</text> }
             </svg>
             <div
                 ref={tooltipRef}
