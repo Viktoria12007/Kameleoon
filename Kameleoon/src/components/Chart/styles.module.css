@@ -1,0 +1,9 @@
+.axisText {
+    font-weight: bold;
+    fill: var(--color-axis);
+    color: var(--color-axis);
+}
+
+.axisLines {
+    stroke: var(--color-axis-lines);
+}
