@@ -18,7 +18,7 @@ export default function Select({ options = [], value, onChange, placeholder = "S
 
     return (
         <div className={styles.selectWrapper} ref={wrapperRef}>
-            <div className={styles.selectControl} onClick={() => setOpen(!open)}>
+            <div tabIndex={0} role="select" className={styles.selectControl} onClick={() => setOpen(!open)}>
                 <span>{value ? value.label : placeholder}</span>
                 <div className={styles.arrow}>{open ? "▲" : "▼"}</div>
             </div>
@@ -28,6 +28,7 @@ export default function Select({ options = [], value, onChange, placeholder = "S
                     { options.filter(item => item.value !== value?.value).map((opt) => (
                         <li
                             key={opt.value}
+                            role="option"
                             className={`${styles.selectOption} ${value?.value === opt.value ? "selected" : ""}`}
                             onClick={() => {
                                 onChange(opt);
