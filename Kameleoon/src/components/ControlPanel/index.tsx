@@ -20,12 +20,47 @@ export default function ControlPanel({ data = [] }) {
     const [variation, setVariation] = useState(variations[0]);
     const [timePeriod, setTimePeriod] = useState(timePeriods[0]);
     const [lineStyle, setLineStyle] = useState(lineStyles[0]);
-    const [theme, setTheme] = useState(true);
 
     useEffect(() => {
-        setAppState({ variation, timePeriod, lineStyle, theme });
-    }, [variation, timePeriod, lineStyle, theme]);
+        setAppState((state) => ({ ...state, variation, timePeriod, lineStyle }));
+    }, [variation, timePeriod, lineStyle]);
 
+    function toggleTheme() {
+        const next = appState?.theme === "light" ? 'dark' : "light";
+        setAppState((state) => ({ ...state, theme: next }));
+        document.documentElement.setAttribute('data-theme', next);
+    }
+
+    async function exportSvgToPng() {
+        const svgElement = document.querySelector("#chart");
+        const svgData = new XMLSerializer().serializeToString(svgElement as Node);
+
+        const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        await new Promise(resolve => {
+            img.onload = resolve;
+            img.src = url;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = svgElement.clientWidth;
+        canvas.height = svgElement.clientHeight;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        URL.revokeObjectURL(url);
+
+        const a = document.createElement("a");
+        a.download = "chart.png";
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+    }
+    
     return (
         <div className={styles.controlPanel__wrap}>
             <div className={styles.controlPanel__col}>
@@ -49,7 +84,8 @@ export default function ControlPanel({ data = [] }) {
                     value={lineStyle}
                     onChange={setLineStyle}
                 />
-                <button onClick={() => setTheme(!theme)}>Theme</button>
+                <button className="button" onClick={toggleTheme}>Theme</button>
+                <button className="button" onClick={exportSvgToPng}>PNG</button>
             </div>
         </div>
     )
