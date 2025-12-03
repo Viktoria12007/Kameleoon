@@ -14,16 +14,19 @@ const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
     const { appState, setAppState } = useContext(AppContext);
 
     const [widthContainer, setWidthContainer] = useState(width);
+    const [dateTooltip, setDateTooltip] = useState<Date | null>(null);
+    const [valuesTooltip, setValuesTooltip] = useState<Array<number>>([]);
 
     const gx = useRef(null);
     const gy = useRef(null);
     // const svgRef = useRef<SVGElement | null>(null);
-    const tooltipRef = useRef<HTMLDivElement | null>(null);
-    const containerRef = useRef<HTMLDivElement | null>(null);
+    const tooltip = useRef<HTMLDivElement | null>(null);
+    const container = useRef<HTMLDivElement | null>(null);
+    const verticalLine = useRef<SVGLineElement | null>(null);
 
     useEffect(() => {
         function render() {
-            setWidthContainer(containerRef.current?.getBoundingClientRect().width);
+            setWidthContainer(container.current?.getBoundingClientRect().width);
         }
         window.addEventListener('resize', render);
         render();
@@ -38,6 +41,8 @@ const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
     const innerH = height - marginTop - marginBottom;
     const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const getWeekDay = (date: Date) => weekDays[date.getDay() === 0 ? 6 : date.getDay() - 1];
+    const formatDate = d3.timeFormat("%d.%m.%Y");
+    const bisect = d3.bisector(d => d.date).left;
 
     let parsed: [Array<{ date: Date, value: number }> | undefined] | undefined;
     let x;
@@ -64,14 +69,16 @@ const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
         })).sort((a, b) => a.date - b.date)];
     }
 
+    const parsedFlat = parsed?.flat();
+
     if (appState?.timePeriod.value === 0) {
-        x = d3.scaleTime().domain(d3.extent(parsed?.flat(), d => d.date)).range([marginLeft, widthContainer - marginRight]);
+        x = d3.scaleTime().domain(d3.extent(parsedFlat, d => d.date)).range([marginLeft, widthContainer - marginRight]);
     } else {
         const getWeekIndex = (date: Date) => (date.getDay() + 6) % 7;
         x = d3.scaleLinear().domain([0, 6]).range([marginLeft, widthContainer - marginRight]);
     }
 
-    y = d3.scaleLinear().domain(d3.extent(parsed?.flat(), d => d.value)).range([height - marginBottom, marginTop]);
+    y = d3.scaleLinear().domain(d3.extent(parsedFlat, d => d.value)).range([height - marginBottom, marginTop]);
 
     let line = d3.line().defined(d => !isNaN(d.value)).x((d) => x(d.date)).y((d) => y(d.value));
     let area;
@@ -79,13 +86,13 @@ const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
         line = line.curve(d3.curveMonotoneX);
     } else if (appState?.lineStyle.value === 2) {
         line = line.curve(d3.curveMonotoneX);
-        area = d3.area().defined(d => !isNaN(d.value)).x((d) => x(d.date)).y0(y(d3.min(parsed?.flat(), (d) => d.value))).y1((d) => y(d.value)).curve(d3.curveMonotoneX);
+        area = d3.area().defined(d => !isNaN(d.value)).x((d) => x(d.date)).y0(y(d3.min(parsedFlat, (d) => d.value))).y1((d) => y(d.value)).curve(d3.curveMonotoneX);
     }
 
     useEffect(() => {
         let axis;
         if (appState?.timePeriod.value === 0) {
-            axis = d3.select(gx.current).call(d3.axisBottom(x).tickFormat(d3.utcFormat("%x")));
+            axis = d3.select(gx.current).call(d3.axisBottom(x).tickFormat(formatDate));
         } else {
             axis = d3.select(gx.current).call(d3.axisBottom(x).ticks(7).tickFormat(i => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][Number(i)]));
         }
@@ -105,53 +112,39 @@ const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
         return (item.conversions[appState?.variation.value] / item.visits[appState?.variation.value]) * 100;
     }
 
-    function handleMouseOver() {
-        if (tooltipRef.current) {
-            tooltipRef.current.style.display = 'block';
-        }
-    }
-
     function handleMouseOut() {
-        if (tooltipRef.current) {
-            tooltipRef.current.style.display = 'none';
+        if (tooltip.current) {
+            tooltip.current.style.display = 'none';
         }
     }
 
     function handleMouseMove(event) {
-        const [mx] = d3.pointer(event, this);
-        const x0 = x.invert(mx);
-        // find nearest point
-        const bisect = d3.bisector(d => d.date).left;
-        const idx = Math.min(parsed?.flat().length - 1, Math.max(0, bisect((parsed as Array<{ date: Date, value: number }>).flat(), x0)));
-        const d0 = (parsed as Array<{ date: Date, value: number }>).flat()[idx];
-        // position focus
-        // focus.attr('transform', `translate(${x(d0.date)},${y(d0.value)})`)
-        if (tooltipRef.current) {
-            const tt = tooltipRef.current;
-            const dateStr = d3.timeFormat('%Y-%m-%d %H:%M')(d0?.date)
-            tt.innerHTML = `<strong>${dateStr}</strong>`
-            // position tooltip (avoid overflow)
-            const parentRect = containerRef.current.getBoundingClientRect()
-            const left = Math.min(parentRect.width - 160, marginLeft + x(d0?.date) + 12)
-            const top = marginTop + y(d0?.value) - 12
-            tt.style.left = `${left}px`
-            tt.style.top = `${top}px`
+        if (tooltip.current) {
+            const date = x.invert(d3.pointer(event)[0]);
+            setDateTooltip(date);
+            const valuesPerDate = parsed?.map(line => {
+                const i = bisect(line, date);
+                return line[i].value;
+            });
+            setValuesTooltip(valuesPerDate);
+            tooltip.current.style.display = 'block';
+            const centerY = marginTop + marginBottom + (height / 2);
+            tooltip.current.style.transform = `translate(${x(date)}px,${-centerY}px)`;
+            verticalLine.current?.setAttribute("transform", `translate(${x(date)},0)`);
         }
     }
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-            <svg id="chart" style={{ width: '100%', height }}>
+        <div ref={container} style={{ position: 'relative', width: '100%' }}>
+            <svg
+                id="chart"
+                style={{ width: '100%', height }}
+                onMouseEnter={handleMouseMove}
+                onMouseLeave={handleMouseOut}
+                onMouseMove={handleMouseMove}
+            >
                 { parsed?.length && appState &&
                     <>
-                        <rect
-                            width={widthContainer}
-                            height={height}
-                            fill="transparent"
-                            onMouseOver={handleMouseOver}
-                            onMouseOut={handleMouseOut}
-                            onMouseMove={handleMouseMove}
-                        />
                         <g ref={gx} transform={`translate(0,${height - marginBottom})`} className={styles.axisText} />
                         <g ref={gy} transform={`translate(${marginLeft},0)`} className={styles.axisText} />
                         <g>
@@ -211,26 +204,31 @@ const Chart = ({ data = [], width = 1300, height = 330 }: ChartProps) => {
                                 }
                             </g>
                         )}
+                        <line ref={verticalLine} y1={height - marginBottom} y2={0} className={styles.cursorTooltip} />
                     </>
                 }
                 { !parsed?.length && <text textAnchor="middle" fill="#918F9A">No data</text> }
             </svg>
-            <div
-                ref={tooltipRef}
-                style={{
-                    position: 'absolute',
-                    pointerEvents: 'none',
-                    display: 'none',
-                    minWidth: 120,
-                    background: 'rgba(255,255,255,0.98)',
-                    border: '1px solid rgba(0,0,0,0.08)',
-                    padding: '8px 10px',
-                    borderRadius: 6,
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
-                    fontSize: 13,
-                    color: '#111',
-                }}
-            />
+            <div ref={tooltip} className={styles.tooltip}>
+                <div className={styles.dateTooltip}>
+                    {formatDate(dateTooltip as Date)}
+                </div>
+                <ul className={styles.listVariations}>
+                    { valuesTooltip.map(((item, index) =>
+                        !isNaN(item) && <li key={index} className={styles.itemVariations}>
+                            <div className={styles.leftColVariation}>
+                                <div
+                                    className={styles.iconVariation}
+                                    style={{ backgroundColor: appState?.variation.value !== 1 ?
+                                            variationsColors[appState?.variation.value][appState?.theme]
+                                            : Object.values(variationsColors)[index][appState?.theme] }}></div>
+                                <div>{appState?.variation.value !== 1 ? appState?.variation.label : data?.variations[index]?.name}</div>
+                            </div>
+                            <div>{`${item.toFixed(2)}%`}</div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
         </div>
     );
 }
