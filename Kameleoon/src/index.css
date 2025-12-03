@@ -16,6 +16,7 @@
   --color-2: #4142EF;
   --color-3: #FF8346;
   --color-4: #35BDAD;
+  --color-cursor: #0D00AA;
 }
 
 :root[data-theme="dark"] {
@@ -29,6 +30,11 @@
   --color-2: #A1A3FF;
   --color-3: #FF8346;
   --color-4: #35BDAD;
+  --color-cursor: #C7C5D0;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 body {
@@ -37,6 +43,12 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+}
+
+#root {
+    width: 1300px;
+    margin: 0 auto;
+    padding: 2rem;
 }
 
 .button {
