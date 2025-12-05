@@ -3,7 +3,7 @@ export default interface ChartInterface {
     data: Array<Item>,
 }
 
-type Variations = { name: string } | { id: number, name: string };
+export type Variations = { name: string } | { id: number, name: string };
 
 interface Item {
     date: string,

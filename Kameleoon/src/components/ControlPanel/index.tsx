@@ -2,13 +2,18 @@ import Select from "../../ui/Select/Select.tsx";
 import styles from "./styles.module.css";
 import { useContext, useEffect, useState } from "react";
 import { AppContext } from "../../contexts/AppContext.ts";
+import type { Variations } from "../../types/ChartTypes.ts";
 
-export default function ControlPanel({ data = [] }) {
+interface ControlPanelProps {
+    variations?: Array<Variations>,
+}
+
+export default function ControlPanel({ variations = [] }: ControlPanelProps) {
     const { appState, setAppState } = useContext(AppContext);
 
-    const variations = [
+    const optionsVariations = [
         { value: 1, label: "All variations selected" },
-        ...data.variations.map(item => ({ value: item.id ? item.id : 0, label: item.name }))
+        ...variations.map(item => ({ value: item.id ? item.id : 0, label: item.name }))
     ];
     const timePeriods = [{ value: 0, label: "Day"}, { value: 1, label: "Week"}];
     const lineStyles = [
@@ -17,7 +22,7 @@ export default function ControlPanel({ data = [] }) {
         { value: 2, label: "Line style: area" }
     ];
 
-    const [variation, setVariation] = useState(variations[0]);
+    const [variation, setVariation] = useState(optionsVariations[0]);
     const [timePeriod, setTimePeriod] = useState(timePeriods[0]);
     const [lineStyle, setLineStyle] = useState(lineStyles[0]);
 
@@ -60,13 +65,13 @@ export default function ControlPanel({ data = [] }) {
         a.href = canvas.toDataURL("image/png");
         a.click();
     }
-    
+
     return (
         <div className={styles.controlPanel__wrap}>
             <div className={styles.controlPanel__col}>
                 <Select
                     placeholder="Select variation"
-                    options={variations}
+                    options={optionsVariations}
                     value={variation}
                     onChange={setVariation}
                 />
