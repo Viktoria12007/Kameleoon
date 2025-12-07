@@ -1,13 +1,25 @@
 import { useState, useRef, useEffect } from "react";
 import styles from "./styles.module.css";
 
-export default function Select({ options = [], value, onChange, placeholder = "Select option" }) {
+interface SelectProps {
+    options: Array<Option>,
+    value: Option,
+    onChange: (option: Option) => void,
+    placeholder: string,
+}
+
+export interface Option {
+    value: number;
+    label: string;
+}
+
+export default function Select({ options = [], value, onChange, placeholder = "Select option" }: SelectProps) {
     const [open, setOpen] = useState(false);
-    const wrapperRef = useRef(null);
+    const wrapperRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        function handleClickOutside(e) {
-            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        function handleClickOutside(e: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
                 setOpen(false);
             }
         }

@@ -1,8 +1,10 @@
 import Select from "../../ui/Select/Select.tsx";
+import type { Option } from "../../ui/Select/Select.ts";
 import styles from "./styles.module.css";
 import { useContext, useEffect, useState } from "react";
 import { AppContext } from "../../contexts/AppContext.ts";
 import type { Variations } from "../../types/ChartTypes.ts";
+import type AppState from "../../types/AppStateTypes.ts";
 
 interface ControlPanelProps {
     variations?: Array<Variations>,
@@ -13,7 +15,7 @@ export default function ControlPanel({ variations = [] }: ControlPanelProps) {
 
     const optionsVariations = [
         { value: 1, label: "All variations selected" },
-        ...variations.map(item => ({ value: item.id ? item.id : 0, label: item.name }))
+        ...variations?.map(item => ({ value: 'id' in item ? item.id : 0, label: item.name }))
     ];
     const timePeriods = [{ value: 0, label: "Day"}, { value: 1, label: "Week"}];
     const lineStyles = [
@@ -22,23 +24,23 @@ export default function ControlPanel({ variations = [] }: ControlPanelProps) {
         { value: 2, label: "Line style: area" }
     ];
 
-    const [variation, setVariation] = useState(optionsVariations[0]);
-    const [timePeriod, setTimePeriod] = useState(timePeriods[0]);
-    const [lineStyle, setLineStyle] = useState(lineStyles[0]);
+    const [variation, setVariation] = useState<Option>(optionsVariations[0]);
+    const [timePeriod, setTimePeriod] = useState<Option>(timePeriods[0]);
+    const [lineStyle, setLineStyle] = useState<Option>(lineStyles[0]);
 
     useEffect(() => {
-        setAppState((state) => ({ ...state, variation, timePeriod, lineStyle }));
+        setAppState(state => state ? { ...state, variation, timePeriod, lineStyle } : null);
     }, [variation, timePeriod, lineStyle]);
 
     function toggleTheme() {
-        const next = appState?.theme === "light" ? 'dark' : "light";
-        setAppState((state) => ({ ...state, theme: next }));
+        const next = (appState as AppState)?.theme === "light" ? 'dark' : "light";
+        setAppState(state => state ? { ...state, theme: next } : null);
         document.documentElement.setAttribute('data-theme', next);
     }
 
     async function exportSvgToPng() {
         const svgElement = document.querySelector("#chart");
-        const svgData = new XMLSerializer().serializeToString(svgElement as Node);
+        const svgData = new XMLSerializer().serializeToString(svgElement as Element);
 
         const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
@@ -52,11 +54,11 @@ export default function ControlPanel({ variations = [] }: ControlPanelProps) {
         });
 
         const canvas = document.createElement("canvas");
-        canvas.width = svgElement.clientWidth;
-        canvas.height = svgElement.clientHeight;
+        canvas.width = (svgElement as Element).clientWidth;
+        canvas.height = (svgElement as Element).clientHeight;
 
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
+        (ctx as CanvasRenderingContext2D).drawImage(img, 0, 0);
 
         URL.revokeObjectURL(url);
 

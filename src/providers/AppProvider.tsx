@@ -1,8 +1,9 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { AppContext } from "../contexts/AppContext.ts";
 import type AppState from "../types/AppStateTypes.ts";
 
-export function AppProvider({ children }) {
+export function AppProvider({ children }: { children: ReactNode }) {
     const [appState, setAppState] = useState<AppState | null>({
         variation: { value: 1, label: "All variations selected" },
         timePeriod: { value: 0, label: "Day"},

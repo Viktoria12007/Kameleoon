@@ -1,11 +1,11 @@
 export default interface ChartInterface {
     variations: Array<Variations>,
-    data: Array<Item>,
+    data: Array<ItemData>,
 }
 
 export type Variations = { name: string } | { id: number, name: string };
 
-interface Item {
+export interface ItemData {
     date: string,
     visits: Visits,
     conversions: Conversions,

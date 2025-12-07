@@ -1,6 +1,8 @@
+import type { Option } from "../ui/Select/Select.tsx";
+
 export default interface AppState {
-    variation: { value: number, label: string },
-    timePeriod: { value: number, label: string },
-    lineStyle: { value: number, label: string },
+    variation: Option,
+    timePeriod: Option,
+    lineStyle: Option,
     theme: "light" | "dark",
 }

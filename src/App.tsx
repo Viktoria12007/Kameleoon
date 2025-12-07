@@ -6,7 +6,7 @@ import type ChartInterface from "./types/ChartTypes.ts";
 import Loader from "./ui/Loader/Loader.tsx";
 
 function App() {
-    const [data, setData] = useState<ChartInterface>(null);
+    const [data, setData] = useState<ChartInterface | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
